@@ -61,7 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Configure
-        run: cmake -B build -DORGU_BUILD_TESTS=OFF
+        # clang-cl: the Plaits DSP uses GCC attributes that MSVC does not accept
+        run: cmake -B build -T ClangCL -DORGU_BUILD_TESTS=OFF
       - name: Build
         run: cmake --build build --config Release --target ORGU_VST3 ORGU_Standalone
       - name: Package
