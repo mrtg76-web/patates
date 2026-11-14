@@ -1,0 +1,76 @@
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Core tests
+        run: |
+          cmake -B build -DORGU_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j4
+          ctest --test-dir build --output-on-failure
+
+  macos:
+    needs: tests
+    # GitHub's macOS runners are often short on capacity: try two runner types, either one is enough
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - name: "Configure (universal - Apple Silicon + Intel/Rosetta)"
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DORGU_BUILD_TESTS=OFF
+      - name: Build
+        run: cmake --build build --config Release --target ORGU_VST3 ORGU_AU ORGU_Standalone -j4
+      - name: Sign (ad-hoc) and package
+        run: |
+          A=build/ORGU_artefacts/Release
+          codesign --force --deep -s - "$A/VST3/Orgu.vst3"
+          codesign --force --deep -s - "$A/AU/Orgu.component"
+          codesign --force --deep -s - "$A/Standalone/Orgu.app"
+          mkdir -p dist
+          ditto "$A/VST3/Orgu.vst3" dist/Orgu.vst3
+          ditto "$A/AU/Orgu.component" dist/Orgu.component
+          ditto "$A/Standalone/Orgu.app" dist/Orgu.app
+          cp README.md dist/KURULUM.md
+          lipo -info "$A/VST3/Orgu.vst3/Contents/MacOS/Orgu"
+      - name: Validate AU
+        continue-on-error: true
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          ditto dist/Orgu.component ~/Library/Audio/Plug-Ins/Components/Orgu.component
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          auval -v aumu Org1 Orgu
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Orgu-mac-${{ matrix.runner }}
+          path: dist
+
+  windows:
+    needs: tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -B build -DORGU_BUILD_TESTS=OFF
+      - name: Build
+        run: cmake --build build --config Release --target ORGU_VST3 ORGU_Standalone
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -r build/ORGU_artefacts/Release/VST3/Orgu.vst3 dist/
+          cp build/ORGU_artefacts/Release/Standalone/Orgu.exe dist/ || true
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Orgu-windows
+          path: dist
