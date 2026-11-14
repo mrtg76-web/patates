@@ -16,7 +16,7 @@ file(GLOB_RECURSE PLAITS_SOURCES CONFIGURE_DEPENDS
 add_library(plaits_dsp STATIC ${PLAITS_SOURCES})
 target_include_directories(plaits_dsp PUBLIC third_party/eurorack)
 # TEST selects the portable (non-ARM) code paths of stmlib
-target_compile_definitions(plaits_dsp PUBLIC TEST)
+target_compile_definitions(plaits_dsp PUBLIC TEST _USE_MATH_DEFINES)
 if(MSVC)
     target_compile_options(plaits_dsp PRIVATE /W0)
 else()
