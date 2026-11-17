@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
     for (int b = 0; b < 30; ++b) { p.processBlock(buf, midi); midi.clear(); }
   }
   std::unique_ptr<juce::AudioProcessorEditor> ed(p.createEditor());
-  CHECK(ed->getWidth() == 1000 && ed->getHeight() == 720, "editor size");
+  CHECK(ed->getWidth() == OrguEditor::kW && ed->getHeight() == OrguEditor::kH, "editor size");
   juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
   auto img = ed->createComponentSnapshot(ed->getLocalBounds(), true, 1.0f);
   if (argc > 1) {
